@@ -16,7 +16,7 @@ def node_into_fields (anode):
 		unicode(
 			'<div align="left"><span style="color: gray">[</span><b>$</b>' +
 			' <b>&gt;</b> '.join('<span style="color: #222;">' + parent.text + '</span>' for parent in list(anode.parent_arr())[::-1]) +
-			'<span style="color: gray">]</span>\n\n' +
+			'<span style="color: gray">]</span><br /><br />' +
 			anode.text +
 			'</div>'
 		), 
@@ -64,9 +64,9 @@ def main(from_mindmap, to_deck, depthlimit = None):
 		mm_nodes = get_nodes.mmnode_plus.factory(from_mindmap)
 
 		for (node, lvl) in mm_nodes.downseek():
-			if not node.is_leaf():
-			   #and (depthlimit is None or lvl < depthlimit) \
-			   #and not node.skip_traversal():
+			if not node.is_leaf() \
+			   and (depthlimit is None or lvl < depthlimit) \
+			   and not node.skip_traversal():
 				(node_id, flat) = hash_this_node(node)
 				node_dict[node_id] = {'node': node, 'flat': flat}
 
