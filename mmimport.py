@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import os
 import os.path
+import shutil
 
 import anki
 
@@ -43,20 +45,31 @@ def update_card_with_node(acard, anode):
     acard.fact.setModified(textChanged=True) # reset progress
 
 
+def backup_deck(deck_path):
+    assert os.path.exists(deck_path)
+    new_path = deck_path + '.bak'
+    shutil.copyfile(deck_path, new_path)
+    os.system('gzip -f "' + new_path + '"')
+    new_path += '.gz'
+    return new_path
+
 
 def main(from_mindmap, to_deck, depthlimit = None):
     assert os.path.exists(from_mindmap)
     assert os.path.exists(to_deck)
     assert (isinstance(depthlimit, int) and depthlimit > 0) or depthlimit is None
 
-    mydeck = anki.DeckStorage.Deck(to_deck)
-
-    card_dict = {}
-    node_dict = {}
-
-    num_changes = 0
+    backup_fname = backup_deck(to_deck)
 
     try:
+        mydeck = anki.DeckStorage.Deck(to_deck)
+
+        card_dict = {}
+        node_dict = {}
+
+        num_changes = 0
+
+
         anki_node_model= mydeck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
         
         cards = mydeck.s.query(anki.cards.Card)
@@ -103,6 +116,7 @@ def main(from_mindmap, to_deck, depthlimit = None):
                 num_changes += 1
         
 
+        print "backup made to " + backup_fname
         print "made", num_changes, "changes"
         print "tracking %s leaf nodes on %s branches" % (total_leaf_nodes, total_branch_nodes)
 
@@ -110,7 +124,8 @@ def main(from_mindmap, to_deck, depthlimit = None):
             mydeck.s.flush()
             mydeck.setModified()
             mydeck.save()
-                
+
+
     finally:
         mydeck.close()
 
