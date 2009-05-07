@@ -1,5 +1,11 @@
 import unittest
+
+import sys
+
+sys.path.append('..')
+
 import get_nodes
+
 
 
 
@@ -44,7 +50,7 @@ for test in tests:
 
 
 
-root = get_nodes.mmnode_plus.factory('/Users/nick/Documents/lie to me.mm')
+root = get_nodes.mmnode_plus.factory('testmap.mm')
 
 tests = [
 	(root, {'skip_traversal': False, 'skip_as_child': True, 'skip_as_parent': False, 'is_leaf': False}),
