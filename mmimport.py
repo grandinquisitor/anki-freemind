@@ -64,6 +64,18 @@ def backup_deck(deck_path):
     return new_path
 
 
+def get_model(deck):
+    models = [m for m in deck.models if m.name == 'mindmap node']
+
+    if not models:
+        raise NameError, "missing model"
+    else:
+        assert len(models) == 1
+
+    return models[0]
+
+
+
 def main(from_mindmap, to_deck, depthlimit = None):
     assert os.path.exists(from_mindmap)
     assert os.path.exists(to_deck)
@@ -82,7 +94,32 @@ def main(from_mindmap, to_deck, depthlimit = None):
         num_changes = 0
 
 
-        anki_node_model= mydeck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
+        #anki_node_model= mydeck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
+        # if the model we need is missing, then add it.
+        try:
+            anki_node_model = get_model(mydeck)
+
+        except NameError, e:
+            if str(e) != 'missing model':
+                raise
+
+            else:
+                print "missing mindmap node model. adding"
+
+                # based on: http://ichi2.net/anki/wiki/Plugins?action=AttachFile&do=view&target=iknowimport.py
+                # above code also shows how to do it from the GUI rather than the command line, which I might want to do at some point
+                newmodel = anki.models.Model('mindmap node')
+                newmodel.addFieldModel(anki.models.FieldModel(u'Front', True, False))
+                newmodel.addFieldModel(anki.models.FieldModel(u'Back', True, False))
+                newmodel.addFieldModel(anki.models.FieldModel(u'id', True, True))
+
+                newmodel.addCardModel(anki.models.CardModel(u'Basic', u'%(Front)s', '%(Back)s'))
+                # there's a lot of fun stuff we could do with this...
+
+                mydeck.addModel(newmodel)
+
+                anki_node_model = get_model(mydeck)
+
         
         cards = mydeck.s.query(anki.cards.Card)
 
