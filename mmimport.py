@@ -3,6 +3,8 @@
 import os
 import os.path
 import shutil
+from datetime import datetime
+import itertools
 
 import anki
 
@@ -51,6 +53,14 @@ def backup_deck(deck_path):
     shutil.copyfile(deck_path, new_path)
     os.system('gzip -f "' + new_path + '"')
     new_path += '.gz'
+
+    # copy to a dated version in /tmp
+    for i in itertools.count():
+        alt_new_path = '/tmp/%s-%s.%02i' % (os.path.basename(new_path), datetime.today().strftime('%Y-%m-%d'), i)
+        if not os.path.exists(alt_new_path):
+            shutil.copyfile(new_path, alt_new_path)
+            break
+    
     return new_path
 
 
@@ -59,10 +69,12 @@ def main(from_mindmap, to_deck, depthlimit = None):
     assert os.path.exists(to_deck)
     assert (isinstance(depthlimit, int) and depthlimit > 0) or depthlimit is None
 
+    # might want to only back up if there were any changes...
     backup_fname = backup_deck(to_deck)
 
+    mydeck = anki.DeckStorage.Deck(to_deck)
+
     try:
-        mydeck = anki.DeckStorage.Deck(to_deck)
 
         card_dict = {}
         node_dict = {}
@@ -125,6 +137,10 @@ def main(from_mindmap, to_deck, depthlimit = None):
             mydeck.setModified()
             mydeck.save()
 
+    except:
+        print "error! exiting prematurely."
+        print "backup made to " + backup_fname + '!'
+        raise
 
     finally:
         mydeck.close()
