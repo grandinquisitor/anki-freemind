@@ -5,6 +5,7 @@ import sys
 sys.path.append('..')
 
 import get_nodes
+import mmimport
 
 
 
@@ -75,5 +76,15 @@ for (node, states) in tests:
 
 
 
-unittest.main()
 
+hash_tests = (
+    (root[2][0], root[2][1], True, ((2,0),(2,1))),
+    (root[2][1], root[2][2], False, ((2,2),(2,1))),
+    (root[2][2], root[2][0], False, ((2,0),(2,2))),
+)
+
+for node1, node2, exp_result, coords in hash_tests:
+    test_factory(mmimport.hash_this_node(node1)[1] == mmimport.hash_this_node(node2)[1], exp_result, "expected %s for %r == %r" % (exp_result, mmimport.hash_this_node(node1)[1] , mmimport.hash_this_node(node2)[1]))
+
+
+unittest.main()

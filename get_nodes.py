@@ -2,6 +2,7 @@ import re
 from xml.dom import minidom
 
 class mmnode(object):
+    "generic mindmap node with no special syntax"
 
     def __init__(self, myxmlnode, parent=None):
         assert myxmlnode.hasAttribute('TEXT')

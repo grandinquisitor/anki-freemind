@@ -2,6 +2,7 @@
 
 import os
 import os.path
+import re
 import shutil
 from datetime import datetime
 import itertools
@@ -24,15 +25,31 @@ def node_into_fields (anode):
             anode.text +
             '</div>'
         ), 
-        unicode('<ul align="left"><li>' + '</li><li>'.join(unicode(c) + (c.children and ' <span style="color: #226;">&lt;%s&gt;</span>' % len(c.children) or '') for c in anode.children if not c.skip_as_child()) + "</li></ul>")
+        unicode('<ul align="left"><li>' 
+            + '</li><li>'.join(
+                unicode(c) + (c.children and ' <span style="color: #226;">&lt;%s&gt;</span>' % len(c.children) or '')
+                for c in anode.children
+                if not c.skip_as_child()) 
+            + "</li></ul>")
     )
+
+
+def _normalize_hash(flat_card):
+    "kludge: strip out the parts we don't want to bother hashing"
+    flat_card = re.compile(re.escape('<span style="color: #226;">&lt;') + r'\d+' + re.escape('&gt;</span>')).sub('', flat_card)
+    flat_card = re.compile(re.escape('<div align="left">') + r'.*?' + re.escape('</div>'), re.S).sub('', flat_card)
+    return flat_card
 
 def hash_this_card (acard):
     flat_card = '&'.join("%s=%s" % (field.name,acard.fact[field.name]) for field in acard.fact.model.fieldModels if field.name != 'id')
+    flat_card = _normalize_hash(flat_card)
     return (acard.fact['id'], flat_card)
 
 def hash_this_node (anode):
-    return (anode.node_id, 'Front=%s&Back=%s' % node_into_fields(anode))
+    flat_card = 'Front=%s&Back=%s' % node_into_fields(anode)
+    flat_card = _normalize_hash(flat_card)
+    return (anode.node_id, flat_card)
+
 
 def new_fact_from_node(anode, themodel):
     newfact = anki.facts.Fact(model=themodel)
@@ -73,6 +90,10 @@ def get_model(deck):
         assert len(models) == 1
 
     return models[0]
+
+
+
+
 
 
 
