@@ -87,4 +87,5 @@ for node1, node2, exp_result, coords in hash_tests:
     test_factory(mmimport.hash_this_node(node1)[1] == mmimport.hash_this_node(node2)[1], exp_result, "expected %s for %r == %r" % (exp_result, mmimport.hash_this_node(node1)[1] , mmimport.hash_this_node(node2)[1]))
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()
