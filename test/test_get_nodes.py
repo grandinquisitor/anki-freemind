@@ -1,29 +1,12 @@
+#!/usr/bin/env python
+
 import unittest
 
+from factory import test_factory, finish
+
 import sys
-
 sys.path.append('..')
-
 import get_nodes
-import mmimport
-
-
-
-
-_testnum = 0
-def test_factory(A, B, errmsg=None):
-	"""
-	I want one test per assertion, rather than each case failing at the first assertion. this function lets me do that
-	"""
-
-	global _testnum
-
-	testname = 'dyntest' + str(_testnum)
-
-	globals()[testname] = type(testname, (unittest.TestCase,),
-		{'input': A, 'expected': B, 'errmsg': errmsg, 'testme': lambda self: self.assertEqual(self.input, self.expected, self.errmsg)})
-
-	_testnum += 1
 
 
 
@@ -64,6 +47,8 @@ tests = [
 	(root[0][7], {'skip_traversal': False, 'skip_as_child': False, 'skip_as_parent': True}),
 	(root[1][11], {'skip_traversal': True, 'skip_as_child': True, 'skip_as_parent': True}),
 	(root[1][11][0], {'skip_traversal': True, 'skip_as_child': True, 'skip_as_parent': True}),
+
+	(root[4][2][1], {'skip_as_child': True}),
 ]
 
 for (node, states) in tests:
@@ -76,16 +61,54 @@ for (node, states) in tests:
 
 
 
+# sibling tests
+sib_tests = (
+    # these contain no special syntax:
+	(root[3][0][0], (None, None), False),
+	(root[3][1][0], (None, 'sibb'), True),
+	(root[3][1][1], ('siba', None), True),
+	(root[3][2][0], (None, 'sib2'), True),
+	(root[3][2][1], ('sib1', 'sib3'), True),
+	(root[3][2][2], ('sib2', None), True),
 
-hash_tests = (
-    (root[2][0], root[2][1], True, ((2,0),(2,1))),
-    (root[2][1], root[2][2], False, ((2,2),(2,1))),
-    (root[2][2], root[2][0], False, ((2,0),(2,2))),
+
+    # these contain some ignore syntax:
+	(root[4][0][0], (None, None), False),
+
+	(root[4][1][0], (None, None), False),
+
+	(root[4][2][0], (None, 'sib3'), True),
+	(root[4][2][1], ('sib1', 'sib3'), True),
+	(root[4][2][2], ('sib1', None), True),
+
+	(root[4][3][0], (None, None), False),
+	(root[4][3][1], (None, None), False),
+
+	(root[4][4][0], (None, 'sibb'), True),
+	(root[4][4][1], (None, None), False),
+
+	(root[4][5][0], (None, 'sib2'), True),
+	(root[4][5][1], (None, 'sib3'), True),
+	(root[4][5][2], ('sib2', None), True),
+
+	(root[4][6][0], (None, 'sib2'), True),
+	(root[4][6][1], ('sib1', None), True),
+	(root[4][6][2], ('sib2', None), True),
 )
 
-for node1, node2, exp_result, coords in hash_tests:
-    test_factory(mmimport.hash_this_node(node1)[1] == mmimport.hash_this_node(node2)[1], exp_result, "expected %s for %r == %r" % (exp_result, mmimport.hash_this_node(node1)[1] , mmimport.hash_this_node(node2)[1]))
+
+for (node, exp_sibs, any_sibs) in sib_tests:
+    test_factory(tuple(n.text if n is not None else None for n in node.get_immediate_siblings()), exp_sibs)
+    test_factory(node.has_any_siblings(), any_sibs)
+
+
+
+# split_mnemonic
+test_factory(root[5][0].split_mnemonic(), map(unicode, ('something', 'a mnemonic')))
+test_factory(root[5][1].split_mnemonic(), None)
+
+
 
 
 if __name__ == '__main__':
-    unittest.main()
+    finish()

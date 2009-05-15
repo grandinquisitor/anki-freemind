@@ -4,6 +4,8 @@ from xml.dom import minidom
 class mmnode(object):
     "generic mindmap node with no special syntax"
 
+    a = '1'
+
     def __init__(self, myxmlnode, parent=None):
         assert myxmlnode.hasAttribute('TEXT')
         assert myxmlnode.hasAttribute('ID')
@@ -60,6 +62,29 @@ class mmnode(object):
     def num_children(self):
         return len(self.children)
 
+    def get_immediate_siblings(self):
+        if not self.parent: raise IndexError
+        prev_one = None
+        found_me = False
+        for c in self.parent.children:
+            if c == self:
+                found_me = True
+
+            elif not c.skip_as_child():
+                if found_me:
+                    # if self is 1st node, prev_one will already be None
+                    return (prev_one, c)
+                else:
+                    prev_one = c
+        
+        # self is last node or has no sibling nodes
+        return (prev_one, None)
+
+
+    def has_any_siblings(self):
+        if not self.parent: raise IndexError
+        return bool([x for x in self.parent.children if not x.skip_as_child() and x is not self])
+
 
     def __repr__(self):
         return '<%s #%s \'%s\' at 0x%s>' % (self.__class__.__name__, self.node_id, self.text, hex(id(self)))
@@ -73,6 +98,9 @@ class mmnode(object):
 
     def __len__(self):
         return len(self.children)
+
+    def __nonzero__(self):
+        return True
 
     def print_tree(self):
         for (node, lvl) in self.downseek():
@@ -95,6 +123,12 @@ class mmnode_plus(mmnode):
 
         for key, val in self.parse_node_text(self.text).iteritems():
             self.__dict__[key] = val
+
+
+    def split_mnemonic(self):
+        m = re.compile(r'(.*)\(m:\s*([^\)]+)\)').match(self.text)
+        if m:
+            return map(lambda s: s.strip(), m.groups())
 
 
     def is_leaf(self):
