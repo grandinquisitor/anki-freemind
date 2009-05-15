@@ -4,8 +4,6 @@ from xml.dom import minidom
 class mmnode(object):
     "generic mindmap node with no special syntax"
 
-    a = '1'
-
     def __init__(self, myxmlnode, parent=None):
         assert myxmlnode.hasAttribute('TEXT')
         assert myxmlnode.hasAttribute('ID')
