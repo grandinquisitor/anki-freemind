@@ -40,7 +40,13 @@ class mmnode(object):
         return (node for (node, depth) in self.upseek() if depth > 0)
 
     def depth(self):
-        return len(list(parent_arr))
+        return len(list(self.parent_arr()))
+
+    def ultimate_parent(self):
+        if not self.parent:
+            return self
+        else:
+            return list(self.parent_arr())[-1]
 
     def skip_as_parent(self):
         " include this node for recall with its immediate children? "

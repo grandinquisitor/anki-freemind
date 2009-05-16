@@ -22,5 +22,5 @@ def test_factory(A, B, errmsg=None):
 
 
 def finish():
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=1).run(suite)
     # could also use globals(), but need like unittest.main(module=__name__)

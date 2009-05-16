@@ -35,6 +35,10 @@ class object_capturer(object):
         if self.expected_capture and obj.__class__ != self.expected_capture: raise TypeError
         self.captured_object = obj
 
+        if hasattr(self, '_postinit'):
+            assert callable(self._postinit)
+            self._postinit()
+
     def __getattribute__(self, name):
         try:
             return object.__getattribute__(self, name)
@@ -68,8 +72,9 @@ class view(object_capturer):
 
 
     def node_identifier(self):
-        assert ':' not in self.node_id and ':' not in self.__class__.__name__
-        return ':'.join((self.node_id, self.__class__.__name__))
+        up = self.ultimate_parent().text
+        assert all(':' not in x for x in (self.node_id, self.__class__.__name__, up))
+        return ':'.join((up, self.node_id, self.__class__.__name__))
 
 
     def update_fact_with_node(self, somefact):
@@ -130,19 +135,13 @@ class view(object_capturer):
 
 
 # could add these to the view... but they then would need to be added to all child nodes as well.
-def render_node_li(somenode, bold=False):
-    thestr = "<li>"
-    if bold:
-        thestr += u'<b>%s</b>' % somenode.text
-    else:
-        thestr += somenode.text
+def render_node_li(somenode):
+    return concat(
+        u"<li>",
+        somenode.text,
+        u' <span style="color: #226;">&lt;%s&gt;</span>' % len(somenode.children) if len(somenode.children) else u'',
+        u'</li>')
 
-    if len(somenode.children):
-        thestr += u' <span style="color: #226;">&lt;%s&gt;</span>' % len(somenode.children)
-
-    thestr += '</li>'
-
-    return thestr
 
 
 def render_node_breadcrumbs(somenode):
@@ -155,16 +154,24 @@ def render_node_breadcrumbs(somenode):
             )
 
 
+def format_instruction(instruction):
+    return concat(u'<span style="color: #cce">', instruction, u'</span>')
 
-def facthasher(somefact):
-    # bit of a kludge. should really have a container object that contains the fact and adds this
-    parts = somefact['id'].split(':')
-    assert len(parts) in (1, 2), parts
-    if len(parts) == 1:
-        # the default is basic. if a view isn't declared, assume that.
-        return basic_view.hash_this_fact(somefact)
-    else:
-        return view.get_subclass_by_name(parts[1]).hash_this_fact(somefact)
+
+class fact_wrapper(object_capturer):
+    expected_capture = anki.facts.Fact
+
+    def _postinit(self):
+        self.mapname, self.node_id, self.viewname = self['id'].split(':')
+
+    def hashme(self):
+        return view.get_subclass_by_name(self.viewname).hash_this_fact(self)
+
+    def __getitem__(self, k):
+        return self.captured_object[k]
+
+    def __setitem__(self, k, v):
+        self.captured_object[k] = v
 
 
 
@@ -174,8 +181,8 @@ class basic_view(view):
     def node_into_fields (self):
         return {
             'Breadcrumbs': render_node_breadcrumbs(self),
-            'Front_instruction': 'ALL: Look into this room. What do you see?',
-            'Back_instruction': 'ALL: What room are you in?',
+            'Front_instruction': format_instruction('ALL: Look into this room. What do you see?'),
+            'Back_instruction': format_instruction('ALL: What room are you in?'),
             'Front': self.text,
             'Back': concat('<ul align="left">',
                 concat(
@@ -204,14 +211,14 @@ class sibling_view(view):
         assert any(siblings), siblings
         return {
             'Breadcrumbs': render_node_breadcrumbs(self),
-            'Front_instruction': 'SIBLINGS: what are the siblings of this node?',
-            'Back_instruction': 'SIBLINGS: of what node are these the siblings?',
+            'Front_instruction': format_instruction('SIBLINGS: what are the siblings of this node?'),
+            'Back_instruction': format_instruction('SIBLINGS: of what node are these the siblings?'),
             'Front': self.text,
             'Back': concat(
                 u'<ul align="left">',
-                render_node_li(siblings[0], bold=True) if siblings[0] else '',
+                render_node_li(siblings[0]) if siblings[0] else '',
                 '<li>...</li>',
-                render_node_li(siblings[1], bold=True) if siblings[1] else '',
+                render_node_li(siblings[1]) if siblings[1] else '',
                 u"</ul>"
             )
         }
@@ -222,16 +229,16 @@ class meaning_view(view):
 
     def use_this_fact(self):
         assert hasattr(self, 'split_mnemonic') and callable(self.split_mnemonic)
-        return bool(self.split_mnemonic())
+        return self.split_mnemonic() and all(self.split_mnemonic())
 
     def node_into_fields (self):
         parts = self.split_mnemonic()
-        assert parts and len(parts) == 2 and all(parts)
+        assert parts and len(parts) == 2 and all(parts), parts
 
         return {
             'Breadcrumbs': render_node_breadcrumbs(self),
-            'Front_instruction': 'MNEMONIC: What is this the mnemonic for?',
-            'Back_instruction': 'MNEMONIC: What is the mnemonic for this?',
+            'Front_instruction': format_instruction('MNEMONIC: What is this the mnemonic for?'),
+            'Back_instruction': format_instruction('MNEMONIC: What is the mnemonic for this?'),
             'Front': parts[1],
             'Back': parts[0],
         }
@@ -264,10 +271,15 @@ def backup_deck(deck_path):
 
 def get_model(deck, bail_if_not_found=False):
     #anki_node_model= deck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
-    models = [m for m in deck.models if m.name == 'mindmap node2']
+    models = [m for m in deck.models if m.name == 'mindmap node']
 
     if models or bail_if_not_found:
         assert len(models) == 1
+
+        # to update, do something like this
+        # models[1].cardModels[0].qformat 
+        # models[1].cardModels[0].aformat
+
 
         # should check that the model fits our expectation. may want to be able to upgrade the model if we update it.
         return models[0]
@@ -287,30 +299,25 @@ def get_model(deck, bail_if_not_found=False):
         # drop the old mode
         # rename the new model to the correct name
 
-        newmodel = anki.models.Model('mindmap node2')
-        newmodel.addFieldModel(anki.models.FieldModel(u'Front', True, False))
-        newmodel.addFieldModel(anki.models.FieldModel(u'Back', True, False))
-        newmodel.addFieldModel(anki.models.FieldModel(u'Breadcrumbs', True, False))
-        newmodel.addFieldModel(anki.models.FieldModel(u'Front_instruction', True, False))
-        newmodel.addFieldModel(anki.models.FieldModel(u'Back_instruction', True, False))
+        newmodel = anki.models.Model(u'mindmap node')
+        newmodel.addFieldModel(anki.models.FieldModel(u'Front', False, False))
+        newmodel.addFieldModel(anki.models.FieldModel(u'Back', False, False))
+        newmodel.addFieldModel(anki.models.FieldModel(u'Breadcrumbs', False, False))
+        newmodel.addFieldModel(anki.models.FieldModel(u'Front_instruction', False, False))
+        newmodel.addFieldModel(anki.models.FieldModel(u'Back_instruction', False, False))
         newmodel.addFieldModel(anki.models.FieldModel(u'id', True, True))
 
-        newmodel.addCardModel(anki.models.CardModel(u'F2B', u'%(Breadcrumbs)s<br /><br />%(Front_instruction)s<br /><br />%(Front)s', '%(Back)s'))
-        newmodel.addCardModel(anki.models.CardModel(u'B2F', u'%(Breadcrumbs)s<br /><br />%(Back_instruction)s<br /><br />%(Back)s', '%(Front)s'))
+        newmodel.addCardModel(anki.models.CardModel(u'F2B', u'%(Breadcrumbs)s<br /><br />%(Front_instruction)s<br /><br />%(Front)s', u'%(Back)s'))
+        newmodel.addCardModel(anki.models.CardModel(u'B2F', u'%(Breadcrumbs)s<br /><br />%(Back_instruction)s<br /><br />%(Back)s', u'%(Front)s'))
+
+        # to disable or enable a card model for a given fact:
+        # every fact has a .cards list of cards. can i just delete said object?
 
         deck.addModel(newmodel)
 
         return get_model(deck, True)
 
 
-
-# hashing problem.
-# we need hashes for three reasons:
-# to see if the card has been updated since we last generated it
-    # + it may have had some nonessential part of it updated
-    # + it may have had some key part of it updated
-# to see if the card has been messed up by being edited accidentally
-# TODO: need a walkthrough of both of these possibilities
 
 
 
@@ -351,6 +358,14 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
         mm_nodes = get_nodes.mmnode_plus.factory(from_mindmap)
 
+        map_title = mm_nodes.text
+        assert map_title.strip()
+        logging.info("map title is '%s'" % map_title)
+
+        if not len(mm_nodes):
+            logging.error("this map is empty. no views will be added. exiting...")
+            raise SystemExit
+
         # make a list of every node
         for (frame, lvl) in mm_nodes.downseek():
             if (depthlimit is None or lvl < depthlimit) and not frame.skip_traversal():
@@ -359,48 +374,64 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                     (frame_id, changed_hash, essential_hash) = view_of_frame.hash_this_node()
                     frame_dict[frame_id] = {'view': view_of_frame, 'changed_hash': changed_hash, 'essential_hash': essential_hash}
 
-                total_leaf_nodes += frame.num_children()
-                total_branch_nodes += 1
+                total_leaf_nodes += 1 
+                if len(frame):
+                    total_branch_nodes += 1
 
 
         for fact in deckfacts:
             if fact.model == anki_node_model:
-                (fact_id, changed_hash, essential_hash) = facthasher(fact)
+                fact = fact_wrapper(fact)
+                (fact_id, changed_hash, essential_hash) = fact.hashme()
 
-                # if we don't recognize this fact anymore, delete it
-                if fact_id not in frame_dict:
-                    logging.debug("deleting deck fact %(id)s %(Front)s" % fact)
-                    mydeck.deleteFact(fact.id)
-                    num_changes += 1
+                # must be from this deck
+                if fact.mapname == map_title:
 
-                # if the card has changed, update it
-                elif frame_dict[fact_id]['changed_hash'] != changed_hash:
+                    # if we don't recognize this fact anymore, delete it
+                    if fact_id not in frame_dict:
+                        logging.debug("deleting deck fact %(id)s %(Front)s" % fact)
+                        mydeck.deleteFact(fact.id)
+                        num_changes += 1
 
-                    logging.debug("updating card %(id)s %(Front)s" % fact)
-                    #print repr(frame_dict[fact_id]['changed_hash'])
-                    #print repr(changed_hash)
+                    # if the card has changed, update it
+                    elif frame_dict[fact_id]['changed_hash'] != changed_hash:
 
-                    frame_dict[fact_id]['view'].update_fact_with_node(fact)
+                        logging.debug("updating card %(id)s %(Front)s" % fact)
+                        #print repr(frame_dict[fact_id]['changed_hash'])
+                        #print repr(changed_hash)
 
-                    # if an essential part of the card has changed (i.e. not formatting), then reset the progress
-                    if frame_dict[fact_id]['essential_hash'] != essential_hash:
-                        logging.debug("resetting card %(id)s" % fact)
-                        mydeck.resetCards([c.id for c in fact.cards])
+                        frame_dict[fact_id]['view'].update_fact_with_node(fact)
 
-                    # in the future, we will check to see if the fact has the right number of cards or the right tags
+                        # if an essential part of the card has changed (i.e. not formatting), then reset the progress
+                        if frame_dict[fact_id]['essential_hash'] != essential_hash:
+                            logging.debug("resetting card %(id)s" % fact)
+                            mydeck.resetCards([c.id for c in fact.cards])
 
-                    num_changes += 1
+                        # in the future, we will check to see if the fact has the right number of cards or the right tags
 
-                found_facts.add(fact_id)
+                        num_changes += 1
+
+                    found_facts.add(fact_id)
+
+                else:
+                    logging.debug('ignoring a fact from a different mind map (%s)' % fact_map)
+                    # may want to have an option to delete
+
 
             else:
                 if delete_nonmindmap:
+                    logging.debug("deleting non-mindmap fact")
                     mydeck.deleteFact(fact.id)
+                    num_changes += 1
                 else:
                     logging.debug("skipping non-mindmap fact")
 
                 # may want to delete it
 
+
+
+        if not found_facts:
+            logging.warning("no frames from this map exist in this deck yet. will add them all")
 
 
         for (frame_id, frame_info) in frame_dict.iteritems():
@@ -421,6 +452,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
             mydeck.s.flush()
             mydeck.setModified()
             mydeck.save()
+            logging.debug("saving updated deck")
 
     except:
         logging.critical("error! exiting prematurely.")
@@ -502,6 +534,9 @@ if __name__ == '__main__':
 
 # REMAINING TODO:
 # tags for different decks
-# probably want to prepend the map name to the card id's
+# a "(new)" flag.. any child will not get sibling or mnemonic views
+# fix _m: nodes
+# add _loc: node support
+# _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
 
 # when i'm feeling bored... make "superdebug" debug level for really mundane stuff
