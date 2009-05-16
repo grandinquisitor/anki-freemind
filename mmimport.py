@@ -203,7 +203,7 @@ class sibling_view(view):
     is_active = True
 
     def use_this_fact(self):
-        return self.parent and self.has_any_siblings()
+        return self.parent and self.has_any_siblings() and not self.has_new_parent()
 
     def node_into_fields (self):
         # thoughts: we should have our own model in we can stick the location in another field, and therefore dont have to call normalize_hash anymore. we could stick all the formatting code into the card model. we can do this once we're comfortable having multiple models.
@@ -229,7 +229,7 @@ class meaning_view(view):
 
     def use_this_fact(self):
         assert hasattr(self, 'split_mnemonic') and callable(self.split_mnemonic)
-        return self.split_mnemonic() and all(self.split_mnemonic())
+        return self.split_mnemonic() and all(self.split_mnemonic()) and not self.has_new_parent()
 
     def node_into_fields (self):
         parts = self.split_mnemonic()
@@ -355,6 +355,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
         total_leaf_nodes = 0
         total_branch_nodes = 0
+        total_views = 0
 
         mm_nodes = get_nodes.mmnode_plus.factory(from_mindmap)
 
@@ -373,10 +374,12 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                 for view_of_frame in frame_views:
                     (frame_id, changed_hash, essential_hash) = view_of_frame.hash_this_node()
                     frame_dict[frame_id] = {'view': view_of_frame, 'changed_hash': changed_hash, 'essential_hash': essential_hash}
+                    total_views += 2 # should conditionally change to one when we support one-sided views
 
-                total_leaf_nodes += 1 
                 if len(frame):
                     total_branch_nodes += 1
+                else:
+                    total_leaf_nodes += 1 
 
 
         for fact in deckfacts:
@@ -404,7 +407,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
                         # if an essential part of the card has changed (i.e. not formatting), then reset the progress
                         if frame_dict[fact_id]['essential_hash'] != essential_hash:
-                            logging.debug("resetting card %(id)s" % fact)
+                            logging.debug("resetting card %(id) %(Front)s" % fact)
                             mydeck.resetCards([c.id for c in fact.cards])
 
                         # in the future, we will check to see if the fact has the right number of cards or the right tags
@@ -446,7 +449,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
         logging.info("backup made to " + backup_fname)
         logging.info("made %s changes" % num_changes)
-        logging.info("tracking %s leaf nodes on %s branches" % (total_leaf_nodes, total_branch_nodes))
+        logging.info("tracking %s end frames on %s branch frames, with %s total views of these frames" % (total_leaf_nodes, total_branch_nodes, total_views))
 
         if num_changes:
             mydeck.s.flush()

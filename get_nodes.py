@@ -134,6 +134,8 @@ class mmnode_plus(mmnode):
         if m:
             return map(lambda s: s.strip(), m.groups())
 
+    def has_new_parent(self):
+        return any('(new)' in node.text for node, depth in self.upseek())
 
     def is_leaf(self):
         return not self.children or self.ignore_all or self.ignore_children or not any(not c.skip_as_child() for c in self.children)
