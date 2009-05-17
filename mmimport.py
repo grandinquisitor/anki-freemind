@@ -26,7 +26,7 @@ class object_capturer(object):
     """
     the point of this object is to provide pseudo-dynamic multiple inheritance.
 
-    subclasses of this object's names will resolve to the child first
+    subclasses of this object's names will resolve to the parent first
     """
 
     expected_capture = None
@@ -327,6 +327,11 @@ def get_model(deck, bail_if_not_found=False):
 
 # as for your other question, recent versions of anki use spaces. 
 
+# self.currentCard.fact.tags = canonifyTags(
+#    addTags("Suspended", self.currentCard.fact.tags))
+# self.currentCard.fact.setModified(textChanged=True)
+# self.deck.updateFactTags([self.currentCard.fact.id])
+
 
 
 
@@ -422,15 +427,13 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
 
             else:
+                # may want to delete it
                 if delete_nonmindmap:
                     logging.debug("deleting non-mindmap fact")
                     mydeck.deleteFact(fact.id)
                     num_changes += 1
                 else:
                     logging.debug("skipping non-mindmap fact")
-
-                # may want to delete it
-
 
 
         if not found_facts:
@@ -537,7 +540,8 @@ if __name__ == '__main__':
 
 # REMAINING TODO:
 # tags for different decks
-# a "(new)" flag.. any child will not get sibling or mnemonic views
+# rather than '(new)'... maybe automatically only active some views when their parents have been answered correctly a couple of times
+# some way to indicate that a set of nodes are not ordered, and therefore views which test your knowledge of the order should be skipped
 # fix _m: nodes
 # add _loc: node support
 # _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
