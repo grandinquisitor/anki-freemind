@@ -16,10 +16,14 @@ import get_nodes
 __version__ = 0.1
 
 def concat(*args):
-    if len(args) == 1 and hasattr(args[0], 'next'):
+    if len(args) == 1 and hasattr(args[0], 'next'): # is there a better test for a generator?
         args = list(args[0])
-    assert all(isinstance(s, basestring) for s in args), args
-    return reduce(operator.concat, args)
+
+    if not args:
+        return ''
+    else:
+        assert all(isinstance(s, basestring) for s in args), args
+        return reduce(operator.concat, args)
 
 
 class object_capturer(object):
@@ -127,6 +131,7 @@ class view(object_capturer):
 
         field_value = re.compile(re.escape('<span style="color: #226;">&lt;') + r'\d+' + re.escape('&gt;</span>')).sub('', field_value) # strip child counts
         field_value = re.compile(r'(?:\s*<[^>]+>\s*)+').sub('@@@', field_value).strip('@') # strip html, but leave as a @@@ as a separator in its place
+        field_value = re.compile(r'\s*\(new\)\s*').sub('', field_value)
         field_value = re.compile(r'\s+').sub(' ', field_value).strip() # normalize whitespace
         
         return field_name, field_value

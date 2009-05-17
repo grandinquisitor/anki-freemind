@@ -13,12 +13,14 @@ root = get_nodes.mmnode_plus.factory('testmap.mm')
 
 
 hash_tests = (
-    (root[2][0], root[2][1], True, ((2,0),(2,1))),
-    (root[2][1], root[2][2], False, ((2,2),(2,1))),
-    (root[2][2], root[2][0], False, ((2,0),(2,2))),
+    (root[2][0], root[2][1], True),
+    (root[2][1], root[2][2], False),
+    (root[2][2], root[2][0], False),
+    (root[6][0], root[6][1], True),
+    (root[6][2], root[6][3], True),
 )
 
-for node1, node2, exp_result, coords in hash_tests:
+for node1, node2, exp_result in hash_tests:
     view1 = mmimport.basic_view(node1)
     view2 = mmimport.basic_view(node2)
     id1, chash1, ehash1 = view1.hash_this_node()
