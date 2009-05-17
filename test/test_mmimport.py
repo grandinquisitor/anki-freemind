@@ -33,5 +33,21 @@ for node1, node2, exp_result in hash_tests:
     test_factory(chash1 == chash2, False, "expected %s for %r == %r" % (False, chash1, chash2))
 
 
+
+sibling_tests = (
+    (root[7][0][0], False),
+    (root[7][0][1], False),
+    (root[7][0][2], False),
+    (root[7][0][3], True),
+)
+
+
+for node, exp_result in sibling_tests:
+    v = mmimport.sibling_view(node)
+    test_factory(v.use_this_fact(), exp_result)
+
+
+
 if __name__ == '__main__':
     finish()
+

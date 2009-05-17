@@ -208,7 +208,7 @@ class sibling_view(view):
     is_active = True
 
     def use_this_fact(self):
-        return self.parent and self.has_any_siblings() and not self.has_new_parent()
+        return self.parent and self.has_any_siblings() and not self.has_new_parent() and not re.compile(r'^[\(_]?m:').match(self.text)
 
     def node_into_fields (self):
         # thoughts: we should have our own model in we can stick the location in another field, and therefore dont have to call normalize_hash anymore. we could stick all the formatting code into the card model. we can do this once we're comfortable having multiple models.
@@ -548,7 +548,6 @@ if __name__ == '__main__':
 # tags for different decks
 # rather than '(new)'... maybe automatically only active some views when their parents have been answered correctly a couple of times
 # some way to indicate that a set of nodes are not ordered, and therefore views which test your knowledge of the order should be skipped
-# fix _m: nodes
 # add _loc: node support
 # _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
 
