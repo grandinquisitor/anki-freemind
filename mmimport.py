@@ -353,11 +353,11 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
     mydeck = anki.DeckStorage.Deck(to_deck)
 
     try:
-
         found_facts = set()
         frame_dict = {}
 
         num_changes = 0
+        num_resets = 0
 
         anki_node_model = get_model(mydeck)
 
@@ -417,8 +417,9 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
                         # if an essential part of the card has changed (i.e. not formatting), then reset the progress
                         if frame_dict[fact_id]['essential_hash'] != essential_hash:
-                            logging.debug("resetting card %(id) %(Front)s" % fact)
+                            logging.debug("resetting card %(id)s %(Front)s" % fact)
                             mydeck.resetCards([c.id for c in fact.cards])
+                            num_resets += 1
 
                         # in the future, we will check to see if the fact has the right number of cards or the right tags
 
@@ -427,7 +428,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                     found_facts.add(fact_id)
 
                 else:
-                    logging.debug('ignoring a fact from a different mind map (%s)' % fact_map)
+                    logging.debug('ignoring a fact from a different mind map (%s)' % fact.mapname)
                     # may want to have an option to delete
 
 
@@ -456,7 +457,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
 
 
         logging.info("backup made to " + backup_fname)
-        logging.info("made %s changes" % num_changes)
+        logging.info("made %s changes, including %s resets" % (num_changes, num_resets))
         logging.info("tracking %s end frames on %s branch frames, with %s total views of these frames" % (total_leaf_nodes, total_branch_nodes, total_views))
 
         if num_changes:
