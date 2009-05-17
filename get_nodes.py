@@ -186,11 +186,3 @@ class mmnode_plus(mmnode):
 # ignore parent if all children are set to ignore ([implicit])
 # don't include self or any descendent (ia)
 # include self for its direct parent, but don't include any descendent (ic)
-
-
-if __name__ == '__main__':
-    from pprint import pprint
-
-    root_node = mmnode.factory('/Users/nick/Documents/lie to me.mm')
-    root_node.print_tree()
-
