@@ -131,7 +131,7 @@ class view(object_capturer):
 
         field_value = re.compile(re.escape('<span style="color: #226;">&lt;') + r'\d+' + re.escape('&gt;</span>')).sub('', field_value) # strip child counts
         field_value = re.compile(r'(?:\s*<[^>]+>\s*)+').sub('@@@', field_value).strip('@') # strip html, but leave as a @@@ as a separator in its place
-        field_value = re.compile(r'\s*\(new\)\s*').sub('', field_value)
+        field_value = re.compile(r'\s*\((?:new|i[ca]?)\)\s*').sub('', field_value)
         field_value = re.compile(r'\s+').sub(' ', field_value).strip() # normalize whitespace
         
         return field_name, field_value
@@ -550,5 +550,7 @@ if __name__ == '__main__':
 # fix _m: nodes
 # add _loc: node support
 # _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
+
+# if I want a view to be one-sided, I think I can just do mydeck.deleteCard(*[card.id for card in newfact.cards if card.name='B2F']) after creating the fact. Or maybe I can just del it out of fact.cards before I add it to the deck
 
 # when i'm feeling bored... make "superdebug" debug level for really mundane stuff

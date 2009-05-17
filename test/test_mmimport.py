@@ -18,6 +18,9 @@ hash_tests = (
     (root[2][2], root[2][0], False),
     (root[6][0], root[6][1], True),
     (root[6][2], root[6][3], True),
+    (root[6][2], root[6][4], True),
+    (root[6][2], root[6][5], True),
+    (root[6][2], root[6][6], True),
 )
 
 for node1, node2, exp_result in hash_tests:
