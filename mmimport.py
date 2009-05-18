@@ -275,29 +275,62 @@ def backup_deck(deck_path):
 
 
 def get_model(deck, bail_if_not_found=False):
+
+    f2b_template = (u'%(Breadcrumbs)s<br /><br />%(Front_instruction)s<br /><br />%(Front)s', u'%(Back)s')
+    b2f_template = (u'%(Breadcrumbs)s<br /><br />%(Back_instruction)s<br /><br />%(Back)s', u'%(Front)s')
+    initial_spacing = 30 * 60.0
+
+
     #anki_node_model= deck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
     models = [m for m in deck.models if m.name == 'mindmap node']
 
-    if models or bail_if_not_found:
+    if not models and bail_if_not_found:
+        logging.critical("tried creating the model and then wasn't able to find it! ack!")
+        raise Exception
+
+    elif models:
         assert len(models) == 1
 
-        # to update, do something like this
-        # models[1].cardModels[0].qformat 
-        # models[1].cardModels[0].aformat
+        our_model = models[0]
+
+        # make sure that the model contains everything we expect
+        assert len(our_model.cardModels) == 2
+        assert our_model.cardModels[0].name != our_model.cardModels[1].name
+        assert set(cm.name for cm in our_model.cardModels) == set((u'B2F', u'F2B'))
+
+        try:
+            assert [(cm.qformat, cm.aformat) for cm in our_model.cardModels if cm.name == u'F2B'][0] == f2b_template
+            assert [(cm.qformat, cm.aformat) for cm in our_model.cardModels if cm.name == u'B2F'][0] == b2f_template
+
+            #assert our_model.initialSpacing == initial_spacing, our_model.initialSpacing
+
+        # update the model if there are differences
+        except AssertionError:
+            logging.warning("model apparently out-of-date, attempting to upgrade")
+            f2b = [cm for cm in our_model.cardModels if cm.name == u'F2B'][0]
+            b2f = [cm for cm in our_model.cardModels if cm.name == u'B2F'][0]
+            f2b.qformat = f2b_template[0]
+            f2b.aformat = f2b_template[1]
+            b2f.qformat = b2f_template[0]
+            b2f.aformat = b2f_template[1]
+
+            #our_model.initialSpacing == initial_spacing
+            
+            our_model.setModified()
+
+        return our_model
 
 
-        # should check that the model fits our expectation. may want to be able to upgrade the model if we update it.
-        return models[0]
-
+    # didn't find the model, so create it
     else:
-        # will eventually want to have different models for every frame
+        # may eventually want to have different models for every frame
         logging.warning("missing mindmap node model. adding")
 
         # based on: http://ichi2.net/anki/wiki/Plugins?action=AttachFile&do=view&target=iknowimport.py
         # above code also shows how to do it from the GUI rather than the command line, which I might want to do at some point
 
 
-        # how to do upgrades on card models: 
+        # how to do upgrades on models: 
         # detect which version of the model we're working with
         # create a new copy of the model under a different name
         # convert all cards from the old model to the new modek
@@ -312,8 +345,10 @@ def get_model(deck, bail_if_not_found=False):
         newmodel.addFieldModel(anki.models.FieldModel(u'Back_instruction', False, False))
         newmodel.addFieldModel(anki.models.FieldModel(u'id', True, True))
 
-        newmodel.addCardModel(anki.models.CardModel(u'F2B', u'%(Breadcrumbs)s<br /><br />%(Front_instruction)s<br /><br />%(Front)s', u'%(Back)s'))
-        newmodel.addCardModel(anki.models.CardModel(u'B2F', u'%(Breadcrumbs)s<br /><br />%(Back_instruction)s<br /><br />%(Back)s', u'%(Front)s'))
+        newmodel.addCardModel(anki.models.CardModel(u'F2B', f2b_template[0], f2b_template[1]))
+        newmodel.addCardModel(anki.models.CardModel(u'B2F', b2f_template[0], b2f_template[1]))
+
+        newmodel.initialSpacing = initial_spacing
 
         # to disable or enable a card model for a given fact:
         # every fact has a .cards list of cards. can i just delete said object?
@@ -356,8 +391,12 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
         found_facts = set()
         frame_dict = {}
 
-        num_changes = 0
-        num_resets = 0
+        changes={
+            'updates': 0,
+            'resets': 0,
+            'adds': 0,
+            'deletes': 0,
+            'any': 0}
 
         anki_node_model = get_model(mydeck)
 
@@ -404,7 +443,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                     if fact_id not in frame_dict:
                         logging.debug("deleting deck fact %(id)s %(Front)s" % fact)
                         mydeck.deleteFact(fact.id)
-                        num_changes += 1
+                        changes['deletes'] += 1
 
                     # if the card has changed, update it
                     elif frame_dict[fact_id]['changed_hash'] != changed_hash:
@@ -419,11 +458,11 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                         if frame_dict[fact_id]['essential_hash'] != essential_hash:
                             logging.debug("resetting card %(id)s %(Front)s" % fact)
                             mydeck.resetCards([c.id for c in fact.cards])
-                            num_resets += 1
+                            changes['resets'] += 1
 
                         # in the future, we will check to see if the fact has the right number of cards or the right tags
 
-                        num_changes += 1
+                        changes['updates'] += 1
 
                     found_facts.add(fact_id)
 
@@ -437,7 +476,7 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                 if delete_nonmindmap:
                     logging.debug("deleting non-mindmap fact")
                     mydeck.deleteFact(fact.id)
-                    num_changes += 1
+                    changes['deletes'] += 1
                 else:
                     logging.debug("skipping non-mindmap fact")
 
@@ -452,15 +491,17 @@ def main(from_mindmap, to_deck, depthlimit = None, delete_nonmindmap=False):
                 newfact = frame_info['view'].new_fact_from_node(anki_node_model)
                 logging.debug("creating new card %(id)s %(Front)s" % newfact)
                 mydeck.addFact(newfact) # should return a list of new card objects
-                num_changes += 1
+                changes['adds'] += 1
 
 
+
+        changes['any'] = sum(changes.itervalues()) - changes['resets']
 
         logging.info("backup made to " + backup_fname)
-        logging.info("made %s changes, including %s resets" % (num_changes, num_resets))
+        logging.info("made %(any)s changes, including %(updates)s updates, %(resets)s resets, %(adds)s adds and %(deletes)s deletes" % changes)
         logging.info("tracking %s end frames on %s branch frames, with %s total views of these frames" % (total_leaf_nodes, total_branch_nodes, total_views))
 
-        if num_changes:
+        if changes['any'] or changes['resets']:
             mydeck.s.flush()
             mydeck.setModified()
             mydeck.save()
@@ -550,7 +591,8 @@ if __name__ == '__main__':
 # some way to indicate that a set of nodes are not ordered, and therefore views which test your knowledge of the order should be skipped
 # add _loc: node support
 # _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
+# may want to have the ALL views high priority and the sibling views low
 
 # if I want a view to be one-sided, I think I can just do mydeck.deleteCard(*[card.id for card in newfact.cards if card.name='B2F']) after creating the fact. Or maybe I can just del it out of fact.cards before I add it to the deck
 
-# when i'm feeling bored... make "superdebug" debug level for really mundane stuff
+# when i'm feeling bored... make "superdebug" debug level for logging for really mundane stuff
