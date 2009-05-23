@@ -76,6 +76,11 @@ class view(object_capturer):
     expected_capture = get_nodes.mmnode_plus
     default_tags = ()
 
+
+    def _postinit(self):
+        self.mapname = self.ultimate_parent().text
+
+
     @classmethod
     def cast_node(cls, anode):
         builders = []
@@ -87,6 +92,7 @@ class view(object_capturer):
 
         return builders
 
+
     @classmethod
     def get_subclass_by_name(cls, name):
         for child in cls.__subclasses__():
@@ -96,20 +102,26 @@ class view(object_capturer):
         raise KeyError, "fact type '%s' not found" % name
 
 
-
     def node_identifier(self):
-        up = self.ultimate_parent().text
-        assert all(':' not in x for x in (self.node_id, self.__class__.__name__, up))
-        return ':'.join((up, self.node_id, self.__class__.__name__))
+        assert self.mapname and isinstance(self.mapname, basestring)
+        assert self.node_id
+        assert all(':' not in x for x in (self.node_id, self.__class__.__name__, self.mapname))
+        return ':'.join((self.mapname, self.node_id, self.__class__.__name__))
 
+
+    @staticmethod
+    def taggify_mapname(mapname):
+        return re.compile(r'[^a-z0-9]+', re.I).sub('_', mapname.replace("'", '')).strip('_').lower()
 
     def get_tags(self):
-        auto_tags = (self.__class__.__name__,) # TODO: add model name. don't know where it is accessible from here, though
+        assert self.mapname and isinstance(self.mapname, basestring)
+        auto_tags = (self.__class__.__name__, self.taggify_mapname(self.mapname))
         return ' '.join(map(unicode, sorted(itertools.chain(self.default_tags, auto_tags))))
 
 
     def update_fact_with_node(self, somefact, mydeck=None):
 
+        # update fact fields
         for k, v in self.node_into_fields().iteritems():
             try:
                 # db access layer complains about this
@@ -122,9 +134,11 @@ class view(object_capturer):
                 logging.critical("anki is complaining that %s does not exist" % k)
                 raise
 
+        # update tags
         somefact.tags = canonifyTags(self.get_tags())
         somefact.setModified(textChanged=True)
 
+        # update the deck. needed if updating cards
         if mydeck is not None: # should be OK if we're using this function to add a new fact
             mydeck.updateFactTags([somefact.id])
             for card in somefact.cards:
@@ -636,7 +650,6 @@ if __name__ == '__main__':
 
 
 # REMAINING TODO:
-# tags for different decks
 # rather than '(new)'... maybe automatically only active some views when their parents have been answered correctly a couple of times
 # some way to indicate that a set of nodes are not ordered, and therefore views which test your knowledge of the order should be skipped
 # add _loc: node support

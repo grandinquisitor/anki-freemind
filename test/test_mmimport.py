@@ -48,6 +48,19 @@ for node, exp_result in sibling_tests:
 
 
 
+
+mapname_tests = (
+    ("map name", 'map_name'),
+    ("map name ", 'map_name'),
+    ("map's name", 'maps_name'),
+    ("map name9", 'map_name9'),
+    ("map name&", 'map_name'),
+)
+
+for name, tag_name in mapname_tests:
+    test_factory(mmimport.view.taggify_mapname(name), tag_name)
+
+
 if __name__ == '__main__':
     finish()
 
