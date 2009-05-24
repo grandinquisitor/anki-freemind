@@ -340,8 +340,6 @@ def get_model(deck, bail_if_not_found=False):
     #anki_node_model= deck.s.query(anki.models.Model).filter('name="mindmap node"')[0]
     models = [m for m in deck.models if m.name == 'mindmap node']
 
-    print map(operator.attrgetter('name'), deck.models)
-
     if not models and bail_if_not_found:
         logging.critical("tried creating the model and then wasn't able to find it! ack!")
         raise Exception
