@@ -120,7 +120,7 @@ test_factory(root[5][1].split_mnemonic(), None)
 
 # new parents
 new_parent_tests = {
-    False: (root[6][0][0], root[6][0][1], root[6][0][1][0]),
+    False: (root[6][0][0], root[6][0][1], root[6][0][1][0], root[6][3], root[6][1]),
     True: (root[6][1][0], root[6][1][1], root[6][1][1][0])
 }
 
