@@ -61,6 +61,18 @@ for name, tag_name in mapname_tests:
     test_factory(mmimport.view.taggify_mapname(name), tag_name)
 
 
+
+hash_tests = (
+    (root[6][0], root[6][1]),
+    (root[6][2], root[6][3]),
+)
+
+
+for node1, node2 in hash_tests:
+    test_factory(mmimport.view._normalize_hash(('x', node1.text)), mmimport.view._normalize_hash(('x', node2.text)))
+
+
+
 if __name__ == '__main__':
     finish()
 
