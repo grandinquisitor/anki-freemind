@@ -313,7 +313,14 @@ class sibling_view(view):
     default_tags = ('PriorityLow',)
 
     def use_this_fact(self):
-        return self.parent and self.has_any_siblings() and not self.has_new_parent() and not re.compile(r'^[\(_]?m:').match(self.text) and not self.skip_as_child()
+        return \
+            self.parent and \
+            self.has_any_siblings() and \
+            not self.has_new_parent() and \
+            not re.compile(r'^[\(_]?m:').match(self.text) and \
+            not self.skip_as_child() and \
+            len([c for c in self.parent.children if not c.skip_as_child()]) > 4 and \
+            0 < self.parent.children.index(self.captured_object) < len(self.parent.children) - 1 # doesn't account for the first or last nodes being mnemonic nodes
 
     def node_into_fields (self):
         # thoughts: we should have our own model in we can stick the location in another field, and therefore dont have to call normalize_hash anymore. we could stick all the formatting code into the card model. we can do this once we're comfortable having multiple models.
@@ -688,6 +695,5 @@ if __name__ == '__main__':
 # some way to indicate that a set of nodes are not ordered, and therefore views which test your knowledge of the order should be skipped
 # add _loc: node support
 # _mr: support.... contains the relationship of the mnemonic to other nodes, which we might want to hide for certain views
-# todo: only enable sibling view if there are 4 or more non-ignored siblings
 
 # when i'm feeling bored... make "superdebug" debug level for logging for really mundane stuff
